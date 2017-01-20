@@ -3,23 +3,32 @@
 #include <stdlib.h>
 #include <regex.h>
 
+#ifdef AnaliseLexica
+
+#endif // AnaliseLexica
+
 #define TOKEN_INVALIDO -1
 #define PALAVRA_RESERVADA 0
 #define SIMBOLO 1
 #define CADEIA_CARACTERE 2
 #define NUMERO 3
 #define IDENTIFICADOR 4
-#define SEPARADORES "&'()*+,-./:;<=>|"
+#define SEPARADORES_COMPOSTO "*./:<=>"
+#define SEPARADORES_SIMPLES "&'()+,-;|"
 #define TAM_BUFFER 10000
 
-struct Token {
+typedef struct {
     char* palavra;
+    char* simboloTerminal;
     int tipo;
     int linha;
     int coluna;
-} token;
+} Token;
 
-void criarExpressaoRegularPalavrasReservadas(char* buffer){
+FILE* arquivo;
+int linha, coluna;
+
+void CriarExpressaoRegularPalavrasReservadas(char* buffer){
     strcpy(buffer, "(");
     strcat(buffer, "^abort$|");
     strcat(buffer, "^abs$|");
@@ -97,42 +106,41 @@ void criarExpressaoRegularPalavrasReservadas(char* buffer){
     strcat(buffer, ")");
 }
 
-void criarExpressaoRegularSimbolos(char* buffer){
+void CriarExpressaoRegularSimbolos(char* buffer){
     strcpy(buffer, "^&$|");
     strcat(buffer, "^\'$|");
     strcat(buffer, "^\\*$|");
     strcat(buffer, "^\\)$|");
     strcat(buffer, "^\\($|");
-    strcat(buffer, "^\\*$|");
     strcat(buffer, "^\\+$|");
-    strcat(buffer, "^\\,$|");
-    strcat(buffer, "^\\-$|");
+    strcat(buffer, "^,$|");
+    strcat(buffer, "^-$|");
     strcat(buffer, "^\\.$|");
     strcat(buffer, "^\\/$|");
-    strcat(buffer, "^\\:$|");
-    strcat(buffer, "^\\;$|");
-    strcat(buffer, "^\\;$|");
-    strcat(buffer, "^\\<$|");
-    strcat(buffer, "^\\=$|");
-    strcat(buffer, "^\\>$|");
-    strcat(buffer, "^\\=\\>$|");
+    strcat(buffer, "^:$|");
+    strcat(buffer, "^;$|");
+    strcat(buffer, "^<$|");
+    strcat(buffer, "^=$|");
+    strcat(buffer, "^>$|");
+    strcat(buffer, "^\\|$|");
+    strcat(buffer, "^=>$|");
     strcat(buffer, "^\\.\\.$|");
     strcat(buffer, "^\\*\\*$|");
-    strcat(buffer, "^\\:\\=$|");
-    strcat(buffer, "^\\/\\=$|");
-    strcat(buffer, "^\\>\\=$|");
-    strcat(buffer, "^\\<\\=$|");
-    strcat(buffer, "^\\>\\>$|");
-    strcat(buffer, "^\\<\\<$|");
-    strcat(buffer, "^\\<\\>$");
+    strcat(buffer, "^:=$|");
+    strcat(buffer, "^\\/=$|");
+    strcat(buffer, "^>=$|");
+    strcat(buffer, "^<=$|");
+    strcat(buffer, "^>>$|");
+    strcat(buffer, "^<<$|");
+    strcat(buffer, "^<>$");
 }
 
-void obterVetorDeExpressoesRegulares(char vetor[5][2256]){
+void ObterVetorDeExpressoesRegulares(char vetor[5][2256]){
     char expressaoRegularPalavrasReservadas[2256];
     char expressaoRegularSimbolos[512];
 
-    criarExpressaoRegularPalavrasReservadas(expressaoRegularPalavrasReservadas);
-    criarExpressaoRegularSimbolos(expressaoRegularSimbolos);
+    CriarExpressaoRegularPalavrasReservadas(expressaoRegularPalavrasReservadas);
+    CriarExpressaoRegularSimbolos(expressaoRegularSimbolos);
 
     strcpy(vetor[0], expressaoRegularPalavrasReservadas);
     strcpy(vetor[1], expressaoRegularSimbolos);
@@ -141,26 +149,86 @@ void obterVetorDeExpressoesRegulares(char vetor[5][2256]){
     strcpy(vetor[4], "^[a-zA-Z](_?[a-zA-Z0-9])*$");
 }
 
-int classificarToken(char* palavra){
+void strupp(char* beg)
+{
+    while (*beg = toupper(*beg)) {
+        beg++;
+    }
+}
+
+char* ObterSimboloTerminal(Token* token) {
+    int resultado;
+    regex_t regex;
+    if(token->tipo == PALAVRA_RESERVADA) {
+        char* upp = malloc(sizeof(token->palavra) + 1);
+        strcpy(upp,token->palavra);
+        strupp(upp);
+        return upp;
+    } else if (token->tipo == NUMERO) {
+        return "NUMERIC_LITERAL";
+    } else if (token->tipo == CADEIA_CARACTERE) {
+        resultado = regcomp(&regex, "\'.\'", REG_EXTENDED);
+        resultado = regexec(&regex, token->palavra, 0, NULL, 0);
+        if(resultado == REG_NOMATCH){
+            return "STRING_LITERAL";
+        } else {
+            return "STRING_LITERAL";
+        }
+    } else if (token->tipo == SIMBOLO) {
+        if (strcmp(token->palavra, "'") == 0) {
+            return "TIC";
+        } else if (strcmp(token->palavra, ":") == 0) {
+            return "COLON";
+        } else if (strcmp(token->palavra, "..") == 0) {
+            return "DOT_DOT";
+        } else if (strcmp(token->palavra, "<<") == 0) {
+            return "LT_LT";
+        } else if (strcmp(token->palavra, "<>") == 0) {
+            return "BOX";
+        } else if (strcmp(token->palavra, "<=") == 0) {
+            return "LT_EQ";
+        } else if (strcmp(token->palavra, "**") == 0) {
+            return "EXPON";
+        } else if (strcmp(token->palavra, "/=") == 0) {
+            return "NE";
+        } else if (strcmp(token->palavra, ">>") == 0) {
+            return "GT_GT";
+        } else if (strcmp(token->palavra, ">=") == 0) {
+            return "GE";
+        } else if (strcmp(token->palavra, ":=") == 0) {
+            return "IS_ASSIGNED";
+        } else if (strcmp(token->palavra, "=>") == 0) {
+            return "RIGHT_SHAFT";
+        } else {
+            return token->palavra;
+        }
+    } else if (token->tipo == IDENTIFICADOR) {
+        return "IDENTIFIER";
+    }
+}
+
+void ClassificarToken(Token* token){
     char expressoes[5][2256];
-    int i;
+    int tipo;
     regex_t regex;
     int resultado;
-    obterVetorDeExpressoesRegulares(expressoes);
-    token.palavra = palavra;
-    for(i = 0; i < 5; i++){
-        resultado = regcomp(®ex, expressoes[i], REG_EXTENDED);
-        resultado = regexec(®ex, palavra, 0, NULL, 0);
+    token->tipo = TOKEN_INVALIDO;
+    token->simboloTerminal = "$";
+    ObterVetorDeExpressoesRegulares(expressoes);
+    for(tipo = 0; tipo < 5; tipo++){
+        resultado = regcomp(&regex, expressoes[tipo], REG_EXTENDED);
+        resultado = regexec(&regex, token->palavra, 0, NULL, 0);
         if(resultado == REG_NOMATCH){
             continue;
         }
-        return i;
+        token->tipo = tipo;
+        token->simboloTerminal = ObterSimboloTerminal(token);
+        break;
     }
-    return TOKEN_INVALIDO;
 }
 
-struct Token getToken(FILE* arquivo, int* linha, int* coluna) {
-    struct Token token;
+Token ObterToken(FILE* arquivo, int* linha, int* coluna) {
+    Token token;
     int ch;
     int tam = 0;
     int naoEncontrouString = 1;
@@ -191,7 +259,7 @@ struct Token getToken(FILE* arquivo, int* linha, int* coluna) {
             naoEncontrouString = 0;
         }
 
-        if (naoEncontrouString && strchr(SEPARADORES, ch)) {
+        if(naoEncontrouString && strchr(SEPARADORES_SIMPLES, ch)) {
             if(tamanho_palavra == 0) {
                 palavra[tam++] = (char)ch;
                 token.coluna = *coluna;
@@ -201,6 +269,22 @@ struct Token getToken(FILE* arquivo, int* linha, int* coluna) {
                 ///Volta uma posição do arquivo
                 fseek(arquivo, -1, SEEK_CUR);
             }
+            break;
+        } else if (naoEncontrouString && strchr(SEPARADORES_COMPOSTO, ch)) {
+            if(tamanho_palavra < 2) {
+                palavra[tam++] = (char)ch;
+                token.coluna = *coluna;
+                token.linha = *linha;
+                (*coluna)++;
+                continue;
+            } else {
+                ///Volta uma posição do arquivo
+                fseek(arquivo, -1, SEEK_CUR);
+            }
+            break;
+        } else if (tamanho_palavra == 1 && strchr(SEPARADORES_COMPOSTO, palavra[0])) {
+            ///Volta uma posição do arquivo
+            fseek(arquivo, -1, SEEK_CUR);
             break;
         }
 
@@ -213,29 +297,13 @@ struct Token getToken(FILE* arquivo, int* linha, int* coluna) {
         }
         (*coluna)++;
     }
-    palavra[tam] = '\0';
+    if (!tam) {
+        palavra[0] = '$';
+        palavra[1] = '\0';
+    } else {
+        palavra[tam] = '\0';
+    }
     token.palavra = palavra;
+    ClassificarToken(&token);
     return token;
-}
-
-int main(){
-    int i;
-    int linha = 1, coluna = 1;
-    FILE *arquivo = fopen("helloworld.adb", "r");
-	if(arquivo == NULL) {
-        printf("Nao foi possivel abrir o arquivo.\n");
-	} else {
-        for(i = 0; i < 29; i++){
-            struct Token token;
-            token = getToken(arquivo, &linha, &coluna);
-            printf("Palavra %s\n", token.palavra);
-            token.tipo = classificarToken(token.palavra);
-            if (token.tipo == TOKEN_INVALIDO){
-                printf("Token %s invalido linha: %d coluna: %d\n", token.palavra, token.linha, token.coluna);
-            }
-        }
-	}
-
-    fclose(arquivo);
-	return 0;
 }
