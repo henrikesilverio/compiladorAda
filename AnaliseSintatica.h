@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include "TabelaPreditiva.h"
+#include "tabelaPreditiva.h"
 #include "AnaliseLexica.h"
 
 #ifndef AnaliseSintatica
@@ -102,7 +102,7 @@ void AnalisadorSintaticoPreditivo() {
 
     ///Inicia a pilha com o simbolo inicial da gramatica
     Empilhar(pilha, "$");
-    Empilhar(pilha, "goal_symbol");
+    Empilhar(pilha, "compilation");
 
     InicializarTabelaHash();
 
